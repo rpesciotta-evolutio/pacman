@@ -138,67 +138,80 @@ function getOpenStackCloudMetadata(callback) {
 
 function getAWSCloudMetadata(callback) {
     console.log('getAWSCloudMetadata');
-    // Set options to retrieve AWS zone for instance
-    var awsOptions = {
+
+    // Step 1: Fetch the IMDSv2 token
+    const tokenOptions = {
         hostname: '169.254.169.254',
         port: 80,
-        path: '/latest/meta-data/placement/availability-zone',
-        method: 'GET',
-        timeout: 10000,
+        path: '/latest/api/token',
+        method: 'PUT',
+        headers: {
+            'X-aws-ec2-metadata-token-ttl-seconds': '21600'
+        },
+        timeout: 5000
     };
 
-    var cloudName = 'unknown',
-        zone = 'unknown';
+    const tokenReq = http.request(tokenOptions, (tokenRes) => {
+        let token = '';
 
-    var req = http.request(awsOptions, (zoneRes) => {
-        let error;
-
-        if (zoneRes.statusCode !== 200) {
-            error = new Error(`Request Failed.\n` +
-                `Status Code: ${zoneRes.statusCode}`);
-        }
-
-        if (error) {
-            console.log(error.message);
-            // consume response data to free up memory
-            zoneRes.resume();
-            callback(error, cloudName, zone);
-            return;
-        }
-
-        console.log(`STATUS: ${zoneRes.statusCode}`);
-        console.log(`HEADERS: ${JSON.stringify(zoneRes.headers)}`);
-        zoneRes.setEncoding('utf8');
-
-        zoneRes.on('data', (chunk) => {
-            console.log(`BODY: ${chunk}`);
-            zone = chunk;
+        tokenRes.on('data', chunk => {
+            token += chunk;
         });
 
-        zoneRes.on('end', () => {
-            console.log('No more data in response.');
-            cloudName = 'AWS'; // Request was successful
+        tokenRes.on('end', () => {
+            if (tokenRes.statusCode !== 200) {
+                console.error('Failed to get IMDSv2 token. Status:', tokenRes.statusCode);
+                callback(new Error('Failed to get IMDSv2 token'), 'unknown', 'unknown');
+                return;
+            }
 
-            // get the zone substring in uppercase
-            var zoneSplit = zone.split('/');
-            zone = zoneSplit[zoneSplit.length - 1].toLowerCase();
-            console.log(`CLOUD: ${cloudName}`);
-            console.log(`ZONE: ${zone}`);
+            // Step 2: Use the token to query metadata
+            const awsOptions = {
+                hostname: '169.254.169.254',
+                port: 80,
+                path: '/latest/meta-data/placement/availability-zone',
+                method: 'GET',
+                timeout: 5000,
+                headers: {
+                    'X-aws-ec2-metadata-token': token
+                }
+            };
 
-            // return CLOUD and ZONE data
-            callback(null, cloudName, zone);
+            const req = http.request(awsOptions, (zoneRes) => {
+                let zoneData = '';
+
+                zoneRes.on('data', (chunk) => {
+                    zoneData += chunk;
+                });
+
+                zoneRes.on('end', () => {
+                    if (zoneRes.statusCode !== 200) {
+                        console.error('Metadata request failed. Status:', zoneRes.statusCode);
+                        callback(new Error('Metadata request failed'), 'unknown', 'unknown');
+                        return;
+                    }
+
+                    console.log(`Retrieved AZ: ${zoneData}`);
+                    const zone = zoneData.trim().toLowerCase();
+                    callback(null, 'AWS', zone);
+                });
+            });
+
+            req.on('error', (e) => {
+                console.error(`Problem with metadata request: ${e.message}`);
+                callback(e, 'unknown', 'unknown');
+            });
+
+            req.end();
         });
-
     });
 
-    req.on('error', (e) => {
-        console.log(`problem with request: ${e.message}`);
-        // return CLOUD and ZONE data
-        callback(e, cloudName, zone);
+    tokenReq.on('error', (e) => {
+        console.error(`Problem with token request: ${e.message}`);
+        callback(e, 'unknown', 'unknown');
     });
 
-    // End request
-    req.end();
+    tokenReq.end();
 }
 
 function getAzureCloudMetadata(callback) {

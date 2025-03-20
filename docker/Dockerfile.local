@@ -1,0 +1,23 @@
+FROM node:boron
+
+MAINTAINER Ricardo Pesciotta <ricardo.pesciotta@evolutiops.com>
+
+# Create app directory
+RUN mkdir -p /usr/src/app
+WORKDIR /usr/src/app
+
+# When using the local files for building the image,
+# build it from the repo root. Use the build-local
+# script provided for building the image
+#
+# Copy the local source code into the container
+COPY ../.. .
+
+# Install app dependencies
+RUN npm install
+
+# Expose port 8080
+EXPOSE 8080
+
+# Run container
+CMD ["npm", "start"]

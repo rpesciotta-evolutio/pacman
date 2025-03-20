@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# Usage function
+usage() {
+    echo "Usage: $0 -t <tag_name>"
+    exit 1
+}
+
+# Parse arguments
+while getopts "t:" opt; do
+  case $opt in
+    t) TAG_NAME=$OPTARG ;;
+    *) usage ;;
+  esac
+done
+
+# Check if tag name was provided
+if [ -z "$TAG_NAME" ]; then
+    echo "❌ Error: Tag name is required."
+    usage
+fi
+
+# Build the Docker image
+echo "🚀 Building Docker image with tag: $TAG_NAME"
+docker build -f docker/Dockerfile.local -t "$TAG_NAME" .
+
+# Check build status
+if [ $? -eq 0 ]; then
+    echo "✅ Docker image built successfully: $TAG_NAME"
+else
+    echo "❌ Docker build failed."
+    exit 2
+fi

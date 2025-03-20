@@ -15,6 +15,12 @@ var loc = require('./routes/location');
 // App
 var app = express();
 
+// Global Request Logger Middleware
+app.use(function(req, res, next) {
+    console.log(`[REQUEST] ${req.method} ${req.url}`);
+    next();
+});
+
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
