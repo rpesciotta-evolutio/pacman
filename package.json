@@ -1,11 +1,11 @@
 {
   "name": "pacman",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Pac-Man Node.js Game",
-  "author": "Ivan Font <ivan@ivanfont.com>",
+  "author": "Ricardo Pesciotta <ricardo.pesciotta@evolutiops.com>",
   "main": "bin/server.js",
   "scripts": {
-    "start": "node .",
+    "start": "node -r ./bin/otel-entrypoint.js .",
     "dev": "nodemon ."
   },
   "license": "GPLv3",
@@ -13,7 +13,9 @@
     "body-parser": "^1.17.1",
     "express": "^4.14.1",
     "jade": "^1.11.0",
-    "mongodb": "^3.3"
+    "mongodb": "^3.3",
+    "@splunk/otel": "*",
+    "@opentelemetry/api": "^1.8.0"
   },
   "devDependencies": {
     "nodemon": "^1.11.0"
