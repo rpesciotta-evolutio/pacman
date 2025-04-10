@@ -1,0 +1,52 @@
+#!/bin/bash
+
+set -e
+
+IMAGE_NAME="localhost:5000/nodejs-pacman-app:dev"
+DEPLOYMENT_NAME="pacman"
+REGISTRY_NAME="registry"
+REGISTRY_PORT=5000
+
+echo "🔍 Checking if Docker container \"$REGISTRY_NAME\" is present..."
+registry_status=$(docker ps -a --filter "name=^/${REGISTRY_NAME}$" --format "{{.Status}}")
+
+if [ -z "$registry_status" ]; then
+    echo "❌ Registry not found. Creating and starting it..."
+    docker run -d -p ${REGISTRY_PORT}:5000 --restart=always --name $REGISTRY_NAME registry:2
+elif [[ "$registry_status" == *"Exited"* ]]; then
+    echo "⚠️ Registry found but not running. Starting it..."
+    docker start $REGISTRY_NAME
+else
+    echo "✅ Registry already running."
+fi
+
+echo "⏳ Waiting for registry to be up..."
+sleep 2
+curl -s http://localhost:${REGISTRY_PORT} > /dev/null && echo "✅ Registry is reachable." || {
+    echo "❌ Failed to verify local registry is running on port $REGISTRY_PORT"
+    exit 1
+}
+
+echo "🔍 Verifying Kubernetes deployment \"$DEPLOYMENT_NAME\" image..."
+current_image=$(kubectl get deploy "$DEPLOYMENT_NAME" -o=jsonpath='{.spec.template.spec.containers[0].image}')
+
+if [ "$current_image" != "$IMAGE_NAME" ]; then
+    echo "⚠️ Deployment image is \"$current_image\", updating to \"$IMAGE_NAME\"..."
+    kubectl set image deployment/$DEPLOYMENT_NAME "$DEPLOYMENT_NAME"="$IMAGE_NAME"
+else
+    echo "✅ Deployment already uses image \"$IMAGE_NAME\"."
+fi
+
+echo "🔨 Building application locally..."
+./build-local -t "$IMAGE_NAME"
+
+echo "📦 Pushing image to local registry..."
+docker push "$IMAGE_NAME"
+
+echo "🧹 Cleaning up old Docker resources to free up space..."
+docker system prune -f
+
+echo "🔁 Restarting deployment \"$DEPLOYMENT_NAME\" to use the updated image..."
+kubectl rollout restart deploy/"$DEPLOYMENT_NAME"
+
+echo "✅ Done. Your development image is deployed and old resources are cleaned up!"
