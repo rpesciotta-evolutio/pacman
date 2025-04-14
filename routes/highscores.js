@@ -36,7 +36,6 @@ router.get('/list', urlencodedParser, function(req, res, next) {
                     findSpan.setAttribute('db.connection_error', true);
                     findSpan.end();
                     console.log('Error retrieving high scores:', err);
-                    console.error(err);
                     return next(err); // let Express handle other types of errors
                 }
 
@@ -96,7 +95,6 @@ router.post('/', urlencodedParser, function(req, res, next) {
                     insertSpan.setStatus({ code: 2, message: 'Failed communication with the DB' });
                     insertSpan.setAttribute("db.connection_error", true);
                     console.log('Error inserting high score:', err);
-                    console.error(err);
                     returnStatus = 'error';
                 } else {
                     console.log('Successfully inserted highscore');

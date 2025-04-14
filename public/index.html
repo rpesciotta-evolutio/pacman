@@ -5,6 +5,20 @@
 <head>
     <meta charset="utf-8" />
     <title>Pac-Man</title>
+
+    <!-- Splunk RUM Instrumentation START -->
+    <script src="https://cdn.signalfx.com/o11y-gdi-rum/v0.20.3/splunk-otel-web.js" crossorigin="anonymous"></script>
+    <script>
+        SplunkRum.init({
+            realm: 'us1',
+            rumAccessToken: 'jSiCqGoRGibetl0lle_GYw',
+            applicationName: 'pacman-rpesciotta',
+            version: '1.0',
+            deploymentEnvironment: 'pacman'
+        });
+    </script>    
+    <!-- Splunk RUM Instrumentation END -->
+
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="pacman-canvas.css">
 

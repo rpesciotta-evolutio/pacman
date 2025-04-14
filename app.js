@@ -41,6 +41,9 @@ app.use(function(req, res, next) {
 
 // Error Handler
 app.use(function(err, req, res, next) {
+    // print error in the logs for information
+    console.error(err);
+
     if (res.headersSent) {
         return next(err)
     }
