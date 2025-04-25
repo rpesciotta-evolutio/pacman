@@ -12,6 +12,8 @@
 -------------------------------------------------------------------*/
 
 "use strict";
+const { trace } = window[Symbol.for('opentelemetry.js.api.1')]
+const tracer = trace.getTracer('pacman-web');
 
 function geronimo() {
 /* ----- Global Variables ---------------------------------------- */
@@ -32,23 +34,42 @@ function geronimo() {
     }
 
     /* AJAX stuff */
-    function getHighscore() {
-        setTimeout(ajax_get,30);
+    function getHighscore(span) {
+        setTimeout(ajax_get,30, span);
     }
 
-    function ajax_get() {
+    function ajax_get(span) {
         $.ajax({
-           datatype: "json",
-           type: "GET",
-           url: "highscores/list",
-           success: function(msg){
-             $("#highscore-table tbody").text("");
-             for (var i = 0; i < msg.length; i++) {
-                var rank = i + 1;
-                // Can we make this shorter?
-                $("#highscore-table tbody").append("<tr><td id='rank'>" + rank + "</td><td id='playername'>" + msg[i]['name'] + "</td><td id='cloudprovider'>" + msg[i]['cloud'] + "</td><td id='zone'>" + msg[i]['zone'] + "</td><td id='host'>" + msg[i]['host'] + "</td><td id='score'>" + msg[i]['score'] + "</td></tr>");
-             }
-           }
+            datatype: "json",
+            type: "GET",
+            url: "highscores/list",
+            success: function(msg){
+                span.addEvent('Ajax call succeeded');
+                $("#highscore-table tbody").text("");
+                for (var i = 0; i < msg.length; i++) {
+                    var rank = i + 1;
+                    // Can we make this shorter?
+                    $("#highscore-table tbody").append("<tr><td id='rank'>" + rank + "</td><td id='playername'>" + msg[i]['name'] + "</td><td id='cloudprovider'>" + msg[i]['cloud'] + "</td><td id='zone'>" + msg[i]['zone'] + "</td><td id='host'>" + msg[i]['host'] + "</td><td id='score'>" + msg[i]['score'] + "</td></tr>");
+                }
+                span.setStatus({ code: 1 }); // OK
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                span.addEvent('Ajax call failed');
+                const err = errorThrown || new Error(textStatus);
+                span.recordException(err);                       // stack trace etc.
+                span.setAttributes({                             // helpful details
+                'http.status_code': jqXHR.status,
+                'http.method':     this.type,
+                'http.url':        this.url
+                });
+                span.setStatus({
+                code:    2, // ERROR
+                message: textStatus
+                });
+            },
+            complete: function() {
+                span.end();
+            }
         });
     }
 
@@ -76,7 +97,7 @@ function geronimo() {
         });
     }
 
-    function ajaxAdd(n, c, z, h, s, l) {
+    function ajaxAdd(n, c, z, h, s, l, span) {
 
         $.ajax({
            type: 'POST',
@@ -91,12 +112,29 @@ function geronimo() {
              },
            dataType: 'json',
            success: function(data) {
+                span.addEvent('Ajax call succeeded');
                 console.log('Highscore added: ' + data);
                 $('#highscore-form').html('<span class="button" id="show-highscore">View Highscore List</span>');
+                span.setStatus({ code: 1 }); // OK
             },
-            error: function(errorThrown) {
-                console.log(errorThrown);
-            }
+            error: function(jqXHR, textStatus, errorThrown) {
+                span.addEvent('Ajax call failed');
+                const err = errorThrown || new Error(textStatus);
+                console.error(err);
+                span.recordException(err);                       // stack trace etc.
+                span.setAttributes({                             // helpful details
+                    'http.status_code': jqXHR.status,
+                    'http.method':     this.type,
+                    'http.url':        this.url
+                });
+                span.setStatus({
+                    code:    2, // ERROR
+                    message: textStatus
+                });
+            },
+            complete: function() {
+                span.end();
+            }            
         });
     }
 
@@ -160,11 +198,11 @@ function geronimo() {
         });
     }
 
-    function addHighscore() {
+    function addHighscore(span) {
         var name = $("input[type=text]").val();
         $("#highscore-form").html("Saving highscore...");
         ajaxAdd(name, game.cloudProvider, game.zone, game.host,
-                 game.score.score, game.level);
+                 game.score.score, game.level, span);
     }
 
     function getUserId() {
@@ -1428,18 +1466,26 @@ function checkAppCache() {
         });
 
         $('body').on('click', '#score-submit', function(){
+            const span = tracer.startSpan('Custom: Save Game Score', {
+                attributes: {
+                    'workflow.name': 'Save Game Score',
+                 }
+            });
             console.log("submit highscore pressed");
+            span.addEvent('submit highscore pressed');
             if ($('#playerName').val() === "" || $('#playerName').val() === undefined) {
                 $('#form-validater').html("Please enter a name<br/>");
             } else {
                 $('#form-validater').html("");
-                addHighscore();
+                addHighscore(span);
             }
         });
 
         $('body').on('click', '#show-highscore', function(){
+            const span = tracer.startSpan('Custom: Retrieve High Scores');
+            span.addEvent('show highscore pressed');
             game.showContent('highscore-content');
-            getHighscore();
+            getHighscore(span);
         });
 
         // Hammerjs Touch Events
@@ -1498,8 +1544,10 @@ function checkAppCache() {
             game.newGame();
         });
         $(document).on('click','.button#highscore',function(event) {
+            const span = tracer.startSpan('Custom: Retrieve High Scores');
+            span.addEvent('show highscore pressed');
             game.showContent('highscore-content');
-            getHighscore();
+            getHighscore(span);
         });
         $(document).on('click','.button#livestats',function(event) {
             game.showContent('livestats-content');

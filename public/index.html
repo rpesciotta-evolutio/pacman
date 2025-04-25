@@ -7,7 +7,8 @@
     <title>Pac-Man</title>
 
     <!-- Splunk RUM Instrumentation START -->
-    <script src="https://cdn.signalfx.com/o11y-gdi-rum/v0.20.3/splunk-otel-web.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.signalfx.com/o11y-gdi-rum/latest/splunk-otel-web.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.signalfx.com/o11y-gdi-rum/latest/splunk-otel-web-session-recorder.js" crossorigin="anonymous"></script>
     <script>
         SplunkRum.init({
             realm: 'us1',
@@ -15,6 +16,11 @@
             applicationName: 'pacman-rpesciotta',
             version: '1.0',
             deploymentEnvironment: 'pacman'
+        });
+        SplunkSessionRecorder.init({
+            realm: 'us1',
+            rumAccessToken: 'jSiCqGoRGibetl0lle_GYw',
+            maskTextSelector: false // disable text masking
         });
     </script>    
     <!-- Splunk RUM Instrumentation END -->
